@@ -19,7 +19,7 @@ import cs245.as3.interfaces.StorageManager.TaggedValue;
  * You can assume that the constructor and initAndRecover() are both called before any of the other methods.
  */
 public class TransactionManager {
-	class WritesetEntry {
+	static class WritesetEntry {
 		public long key;
 		public byte[] value;
 		public WritesetEntry(long key, byte[] value) {
@@ -66,9 +66,9 @@ public class TransactionManager {
 	}
 
 	/**
-	 * Indicates a write to the database. Note that such writes should not be visible to read() 
-	 * calls until the transaction making the write commits. For simplicity, we will not make reads 
-	 * to this same key from txID itself after we make a write to the key. 
+	 * Indicates a write to the database. Note that such writes should not be visible to read()
+	 * calls until the transaction making the write commits. For simplicity, we will not make reads
+	 * to this same key from txID itself after we make a write to the key.
 	 */
 	public void write(long txID, long key, byte[] value) {
 		ArrayList<WritesetEntry> writeset = writesets.get(txID);

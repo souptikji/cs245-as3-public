@@ -1,13 +1,13 @@
 package cs245.as3;
 
-import cs245.as3.driver.LogManagerTests;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 
-public class WriteLog implements Serializable {
+public class LogMsg implements Serializable {
   public static final int DONTCAREKEY = -1;
+
   private final byte _type; //1-start, 2-write, 3-commit
   private final long _txnid;
   private final long _key;
@@ -20,12 +20,12 @@ public class WriteLog implements Serializable {
       System.out.print("Obj class is " + obj.getClass().toString());
       return false;
     }
-    WriteLog other = (WriteLog) obj;
+    LogMsg other = (LogMsg) obj;
     return this._type == other._type && this._txnid == other._txnid && this._key == other._key
         && this._valLen == other._valLen && Arrays.equals(this._val, other._val);
   }
 
-  public WriteLog(byte type, long txnid, long key, byte[] val) {
+  public LogMsg(byte type, long txnid, long key, byte[] val) {
     _type = type;
     _txnid = txnid;
     _key = key;
@@ -33,7 +33,7 @@ public class WriteLog implements Serializable {
     _valLen = val.length;
   }
 
-  public WriteLog(byte type, long txnid) {
+  public LogMsg(byte type, long txnid) {
     _type = type;
     _txnid = txnid;
     _key = DONTCAREKEY;
@@ -51,7 +51,7 @@ public class WriteLog implements Serializable {
     return ret.array();
   }
 
-  static WriteLog deserialize(byte[] b) {
+  static LogMsg deserialize(byte[] b) {
     ByteBuffer bb = ByteBuffer.wrap(b);
     long txnid, key;
     int valLen;
@@ -80,6 +80,34 @@ public class WriteLog implements Serializable {
       //invalid
       throw new RuntimeException("Invalid log type=" + type);
     }
-    return new WriteLog(type, txnid, key, val);
+    return new LogMsg(type, txnid, key, val);
+  }
+
+  public boolean isStartLog() {
+    return this._type == 1;
+  }
+
+  public boolean isWriteLog() {
+    return this._type == 2;
+  }
+
+  public boolean isCommitLog() {
+    return this._type == 3;
+  }
+
+  public byte getType() {
+    return _type;
+  }
+
+  public long getTxnid() {
+    return _txnid;
+  }
+
+  public long getKey() {
+    return _key;
+  }
+
+  public byte[] getVal() {
+    return _val;
   }
 }
