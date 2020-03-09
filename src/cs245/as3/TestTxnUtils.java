@@ -13,15 +13,35 @@ import org.junit.Assert;
 public class TestTxnUtils {
 
   public static void main(String[] args) {
+    testTemplate(100, 1000);
+  }
+
+  private static void testTemplate(int numTxns, int maximumNumWritesForAnyTxn) {
+    Map<Long, List<LogMsg>> txn2Logmsgs = createTransactions(numTxns, maximumNumWritesForAnyTxn);
     LogManager lm = new LogManagerImpl();
+    appendAllTxnsToLog(lm, txn2Logmsgs);
+
+    // lm is ready
+    System.out.println("Starting deserilization");
+    Map<Long, Transaction> deserialized = TransactionUtils.deserializeEntireLog(lm);
+    testIfDeserializedEqualsOriginal(deserialized, txn2Logmsgs);
+  }
+
+  private static Map<Long, List<LogMsg>> createTransactions(int numTxns, int maximumNumWritesForAnyTxn) {
     Random random = new Random();
-    int numTxns = 10; // 10 txnids from [0...9]
     Map<Long, List<LogMsg>> txn2Logmsgs = new HashMap<>();
     for (int i = 0; i < numTxns; ++i) {
+      int numWritesForThisTxn = random.nextInt(maximumNumWritesForAnyTxn);
       List<LogMsg> msgs =
-          createTransactionLogMessages(i, 98); //each log message of size 100 (1 start, 98 writes, 1 commit)
+          createTransactionLogMessages(i, numWritesForThisTxn); //each log message of size 100 (1 start, 98 writes, 1 commit)
       txn2Logmsgs.put((long) i, msgs);
     }
+    return txn2Logmsgs;
+  }
+
+  private static void appendAllTxnsToLog(LogManager lm, Map<Long, List<LogMsg>> txn2Logmsgs) {
+    Random random = new Random();
+    int numTxns = txn2Logmsgs.size();
     Map<Long, List<LogMsg>> copy = deepCopy(txn2Logmsgs);
     long nextTxn = 0;
 
@@ -52,13 +72,12 @@ public class TestTxnUtils {
       System.out.println(
           "Drained " + num_msgs2drain + " logs from txn" + thistxn + ", map size=" + copy.keySet().size());
     }
+  }
 
-    // lm is ready
-    System.out.println("Starting deserilization");
-    Map<Long, Transaction> deserialized = TransactionUtils.deserializeEntireLog(lm);
-    Assert.assertEquals(txn2Logmsgs.keySet().size(), deserialized.keySet().size());
-    for (long txnid : txn2Logmsgs.keySet()) {
-      List<LogMsg> orig = txn2Logmsgs.get(txnid);
+  private static void testIfDeserializedEqualsOriginal(Map<Long, Transaction> deserialized, Map<Long, List<LogMsg>> originalTxn2Logmsgs) {
+    Assert.assertEquals(originalTxn2Logmsgs.keySet().size(), deserialized.keySet().size());
+    for (long txnid : originalTxn2Logmsgs.keySet()) {
+      List<LogMsg> orig = originalTxn2Logmsgs.get(txnid);
       List<LogMsg> converted = deserialized.get(txnid).getOrderedLogMessages();
       Assert.assertNotEquals(converted, null);
       Assert.assertEquals(orig.size(), converted.size());
