@@ -66,7 +66,13 @@ public class TransactionManager {
 		committedTxns.forEach(txn -> txn.compactThisTxnToCreateLVmap());
 		committedTxns.forEach(txn -> latestValues.putAll(txn.getLatestValues()));
 
-		//TODO: queue writes to disk?
+		//Queue all committed writes to disk
+		for(long key: latestValues.keySet()){
+			//Start pushing to dick
+			TaggedValue tv = latestValues.get(key);
+			_sm.queueWrite(key, tv.tag, tv.value);
+		}
+
 		//TODO: "End" txn
 	}
 
@@ -108,7 +114,7 @@ public class TransactionManager {
 	public void commit(long txID) {
 		LogMsg commitLog = new LogMsg((byte) 3, txID);
 		_lm.appendLogRecord(commitLog.serialize());
-		Map<Long, TaggedValue> pushTheseToDick = new HashMap<>();
+		Map<Long, TaggedValue> pushTheseToDisk = new HashMap<>();
 
 		// Modify in memory data structure
 		ArrayList<WritesetEntry> writeset = writesets.get(txID);
@@ -118,14 +124,14 @@ public class TransactionManager {
 				long tag = 0; //TODO: Change this
 				TaggedValue tv = new TaggedValue(tag, x.value);
 				latestValues.put(x.key, tv);
-				pushTheseToDick.put(x.key, tv);
+				pushTheseToDisk.put(x.key, tv);
 			}
 			writesets.remove(txID);
 		}
 
 		// Start writing to disk
-		for(long key: pushTheseToDick.keySet()){
-			TaggedValue tv = pushTheseToDick.get(key);
+		for(long key: pushTheseToDisk.keySet()){
+			TaggedValue tv = pushTheseToDisk.get(key);
 			_sm.queueWrite(key, tv.tag, tv.value);
 		}
 	}

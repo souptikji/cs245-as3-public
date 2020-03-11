@@ -3,8 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="ab7246ee-9fd3-4316-af33-80df46307d9e" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/cs245/as3/LogMsg.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/cs245/as3/LogMsg.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/cs245/as3/Transaction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/cs245/as3/Transaction.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/cs245/as3/TransactionManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/cs245/as3/TransactionManager.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -112,7 +110,7 @@
       <updated>1583633441754</updated>
       <workItem from="1583633449637" duration="29779000" />
       <workItem from="1583788920281" duration="272000" />
-      <workItem from="1583789540149" duration="4069000" />
+      <workItem from="1583789540149" duration="4787000" />
     </task>
     <servers>
       <JIRA url="https://jira01.corp.linkedin.com:8443">
