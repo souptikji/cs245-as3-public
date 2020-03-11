@@ -98,8 +98,8 @@ public class TransactionManager {
 	 * to this same key from txID itself after we make a write to the key.
 	 */
 	public void write(long txID, long key, byte[] value) {
-		LogMsg writeLog = new LogMsg((byte) 2, txID, key, value);
-		_lm.appendLogRecord(writeLog.serialize());
+		//LogMsg writeLog = new LogMsg((byte) 2, txID, key, value);
+		//_lm.appendLogRecord(writeLog.serialize());
 
 		ArrayList<WritesetEntry> writeset = writesets.get(txID);
 		if (writeset == null) {
@@ -112,8 +112,6 @@ public class TransactionManager {
 	 * Commits a transaction, and makes its writes visible to subsequent read operations.\
 	 */
 	public void commit(long txID) {
-		LogMsg commitLog = new LogMsg((byte) 3, txID);
-		_lm.appendLogRecord(commitLog.serialize());
 		Map<Long, TaggedValue> pushTheseToDisk = new HashMap<>();
 
 		// Modify in memory data structure
@@ -128,6 +126,15 @@ public class TransactionManager {
 			}
 			writesets.remove(txID);
 		}
+
+		// Start logging to disk
+		for(long key: pushTheseToDisk.keySet()){
+			TaggedValue tv = pushTheseToDisk.get(key);
+			LogMsg writeLog = new LogMsg((byte) 2, txID, key, tv.value);
+			_lm.appendLogRecord(writeLog.serialize());
+		}
+		LogMsg commitLog = new LogMsg((byte) 3, txID);
+		_lm.appendLogRecord(commitLog.serialize());
 
 		// Start writing to disk
 		for(long key: pushTheseToDisk.keySet()){
