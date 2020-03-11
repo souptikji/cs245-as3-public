@@ -6,6 +6,10 @@ import java.util.HashMap;
 import cs245.as3.interfaces.LogManager;
 import cs245.as3.interfaces.StorageManager;
 import cs245.as3.interfaces.StorageManager.TaggedValue;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 
 /**
  * You will implement this class.
@@ -36,6 +40,9 @@ public class TransactionManager {
 	  */
 	private HashMap<Long, ArrayList<WritesetEntry>> writesets;
 
+	private StorageManager _sm;
+	private LogManager _lm;
+
 	public TransactionManager() {
 		writesets = new HashMap<>();
 		//see initAndRecover
@@ -48,13 +55,27 @@ public class TransactionManager {
 	 */
 	public void initAndRecover(StorageManager sm, LogManager lm) {
 		latestValues = sm.readStoredTable();
+		this._sm = sm;
+		this._lm = lm;
+		wakeUpFromCrash();
+	}
+
+	private void wakeUpFromCrash() {
+		Map<Long, Transaction> allTxnsMap = TransactionUtils.deserializeEntireLog(this._lm);
+		List<Transaction> committedTxns = allTxnsMap.values().stream().filter(txn -> txn.isCommitted()).collect(Collectors.toList());
+		committedTxns.forEach(txn -> txn.compactThisTxnToCreateLVmap());
+		committedTxns.forEach(txn -> latestValues.putAll(txn.getLatestValues()));
+
+		//TODO: queue writes to disk?
+		//TODO: "End" txn
 	}
 
 	/**
 	 * Indicates the start of a new transaction. We will guarantee that txID always increases (even across crashes)
 	 */
-	public void start(long txID) {
-		// TODO: Not implemented for non-durable transactions, you should implement this
+	public void start(long txnid) {
+		LogMsg startLog = new LogMsg((byte) 1, txnid);
+		_lm.appendLogRecord(startLog.serialize());
 	}
 
 	/**
@@ -71,6 +92,9 @@ public class TransactionManager {
 	 * to this same key from txID itself after we make a write to the key.
 	 */
 	public void write(long txID, long key, byte[] value) {
+		LogMsg writeLog = new LogMsg((byte) 2, txID, key, value);
+		_lm.appendLogRecord(writeLog.serialize());
+
 		ArrayList<WritesetEntry> writeset = writesets.get(txID);
 		if (writeset == null) {
 			writeset = new ArrayList<>();
@@ -82,20 +106,35 @@ public class TransactionManager {
 	 * Commits a transaction, and makes its writes visible to subsequent read operations.\
 	 */
 	public void commit(long txID) {
+		LogMsg commitLog = new LogMsg((byte) 3, txID);
+		_lm.appendLogRecord(commitLog.serialize());
+		Map<Long, TaggedValue> pushTheseToDick = new HashMap<>();
+
+		// Modify in memory data structure
 		ArrayList<WritesetEntry> writeset = writesets.get(txID);
 		if (writeset != null) {
 			for(WritesetEntry x : writeset) {
 				//tag is unused in this implementation:
-				long tag = 0;
-				latestValues.put(x.key, new TaggedValue(tag, x.value));
+				long tag = 0; //TODO: Change this
+				TaggedValue tv = new TaggedValue(tag, x.value);
+				latestValues.put(x.key, tv);
+				pushTheseToDick.put(x.key, tv);
 			}
 			writesets.remove(txID);
+		}
+
+		// Start writing to disk
+		for(long key: pushTheseToDick.keySet()){
+			TaggedValue tv = pushTheseToDick.get(key);
+			_sm.queueWrite(key, tv.tag, tv.value);
 		}
 	}
 	/**
 	 * Aborts a transaction.
 	 */
 	public void abort(long txID) {
+		LogMsg abortLog = new LogMsg((byte) 4, txID);
+		_lm.appendLogRecord(abortLog.serialize());
 		writesets.remove(txID);
 	}
 

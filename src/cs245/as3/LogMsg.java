@@ -8,7 +8,7 @@ import java.util.Arrays;
 public class LogMsg implements Serializable {
   public static final int DONTCAREKEY = -1;
 
-  private final byte _type; //1-start, 2-write, 3-commit
+  private final byte _type; //1-start, 2-write, 3-commit, 4-abort
   private final long _txnid;
   private final long _key;
   private final int _valLen;
@@ -25,6 +25,7 @@ public class LogMsg implements Serializable {
         && this._valLen == other._valLen && Arrays.equals(this._val, other._val);
   }
 
+  // Write log msg
   public LogMsg(byte type, long txnid, long key, byte[] val) {
     _type = type;
     _txnid = txnid;
@@ -33,6 +34,7 @@ public class LogMsg implements Serializable {
     _valLen = val.length;
   }
 
+  // Start, Commit, Abort log message
   public LogMsg(byte type, long txnid) {
     _type = type;
     _txnid = txnid;
@@ -72,7 +74,12 @@ public class LogMsg implements Serializable {
       val = new byte[valLen];
       bb.get(val);
     } else if (type == 3) {
-      //start txn
+      //commit txn
+      key = DONTCAREKEY;
+      valLen = 0;
+      val = new byte[0];
+    } else if (type == 4) {
+      // abort txn
       key = DONTCAREKEY;
       valLen = 0;
       val = new byte[0];
@@ -93,6 +100,10 @@ public class LogMsg implements Serializable {
 
   public boolean isCommitLog() {
     return this._type == 3;
+  }
+
+  public boolean isAbortLog() {
+    return this._type == 4;
   }
 
   public byte getType() {
