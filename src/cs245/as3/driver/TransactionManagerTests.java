@@ -1,5 +1,6 @@
 package cs245.as3.driver;
 
+import cs245.as3.TransactionManager;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -11,7 +12,6 @@ import org.junit.rules.Timeout;
 
 import com.github.tkutche1.jgrade.gradedtest.GradedTest;
 
-import cs245.as3.TransactionManager;
 import cs245.as3.driver.LogManagerImpl.CrashException;
 
 /**

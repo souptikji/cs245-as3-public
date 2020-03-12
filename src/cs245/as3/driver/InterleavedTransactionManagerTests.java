@@ -1,5 +1,6 @@
 package cs245.as3.driver;
 
+import cs245.as3.TransactionManager;
 import java.util.Random;
 
 import org.junit.Rule;
@@ -8,25 +9,24 @@ import org.junit.rules.Timeout;
 
 import com.github.tkutche1.jgrade.gradedtest.GradedTest;
 
-import cs245.as3.TransactionManager;
 import cs245.as3.driver.LogManagerImpl.CrashException;
 import cs245.as3.driver.Workloads.Transaction;
 
 public class InterleavedTransactionManagerTests {
-	
+
 	//Test seeds will be modified by the autograder
     protected static long[] TEST_SEEDS = new long[] {0x12345671234567L, 0x456789abcdefL, 0x57194823L, 0xf00b44};
-	
+
     @Rule
     public Timeout globalTimeout = Timeout.seconds(60);
-	
+
     /**
       * Runs transactions on multiple threads and ensures that writes are committed transactionally
       */
     public void TestTransactionsTemplate(final Random seeds, boolean check_recovery, @SuppressWarnings("rawtypes") Class transactionType) {
 		final LogManagerImpl lm = new LogManagerImpl();
 		final StorageManagerImpl sm = new StorageManagerImpl();
-		
+
 		int nSteps = 100000;
 		Random r = new Random(seeds.nextLong());
 		//Make T1 slightly slower or faster than T2. This is the cutoff on whether a step is done on T1 or T2.
@@ -50,7 +50,7 @@ public class InterleavedTransactionManagerTests {
 				success = false;
 				TXid = startTXid;
 			}
-			
+
 			public void step(TransactionManager tm) {
 				if (lastTxn == null) {
 					try {
@@ -80,7 +80,7 @@ public class InterleavedTransactionManagerTests {
 				}
 			}
 		}
-		
+
 		Workload T1 = new Workload(0,0);
 		Workload T2 = new Workload(1,nSteps);
 		//Assigned below
@@ -99,7 +99,7 @@ public class InterleavedTransactionManagerTests {
 			sm.in_recovery = true;
 			tm.initAndRecover(sm, lm);
 			sm.in_recovery = false;
-			
+
 			int i = 0;
 			for(; i < nSteps; i++){
 				if (r.nextDouble() < T1bias) {
@@ -146,7 +146,7 @@ public class InterleavedTransactionManagerTests {
 				//We expect to fail here.
 			}
 			if (check_recovery) {
-				//Check if either txn has been queued to the storage manager (one of them should be assuming a 
+				//Check if either txn has been queued to the storage manager (one of them should be assuming a
 				//durable implementation.)
 				if (T1LastTxnCommitted.checkWritesQueued(TXidForRead, sm)) {
 					System.out.println("T1's last committed TXN is queued to the storage manager.");
@@ -158,12 +158,12 @@ public class InterleavedTransactionManagerTests {
 				}
 			}
 		}
-			
+
     	if (check_recovery){
     		sm.do_persistence_work();
     		sm.crash();
     		lm.resumeServingRequests();
-    		
+
         	TransactionManager tm = new TransactionManager();
 			sm.in_recovery = true;
 			tm.initAndRecover(sm, lm);

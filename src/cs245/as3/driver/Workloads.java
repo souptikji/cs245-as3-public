@@ -1,12 +1,12 @@
 package cs245.as3.driver;
 
+import cs245.as3.TransactionManager;
 import java.util.Arrays;
 import java.util.Random;
 
-import cs245.as3.TransactionManager;
 
 public class Workloads {
-	
+
 	public static interface Transaction {
 		public void generate(Random r);
 		public boolean on_commit_step();
@@ -37,9 +37,9 @@ public class Workloads {
 			b = String.format("%d padding", r.nextInt(100)).getBytes();
 			order = r.nextBoolean();
 		}
-		
+
 		public void step(long txID, TransactionManager tm) {
-			if (step == 0) tm.start(txID); 
+			if (step == 0) tm.start(txID);
 			if (!order) {
 				if (step == 1) tm.write(txID, x, a);
 				if (step == 2) tm.write(txID, y, b);
@@ -47,7 +47,7 @@ public class Workloads {
 				if (step == 1) tm.write(txID, y, b);
 				if (step == 2) tm.write(txID, x, a);
 			}
-			if (step == 3) { 
+			if (step == 3) {
 				tm.commit(txID); step = 0;
 			} else {
 				step++;
@@ -74,18 +74,18 @@ public class Workloads {
 		}
 
 		public boolean check(long txID, TransactionManager tm) {
-			return Arrays.equals(tm.read(txID, x), a) && 
+			return Arrays.equals(tm.read(txID, x), a) &&
 					Arrays.equals(tm.read(txID, y), b)
 			;
 		}
 
 		public boolean checkWritesQueued(long txID, StorageManagerImpl sm) {
-			return Arrays.equals(sm.readLatestValue(x), a) && 
+			return Arrays.equals(sm.readLatestValue(x), a) &&
 					Arrays.equals(sm.readLatestValue(y), b)
 			;
 		}
 	}
-	
+
 	/**
 	  * write(x + i, a) for i in 1..10
 	  * If (order) do the writes in reverse order
@@ -101,7 +101,7 @@ public class Workloads {
 			a = String.format("padding %d", r.nextInt(100)).getBytes();
 			order = r.nextBoolean();
 		}
-		
+
 		public void step(long txID, TransactionManager tm) {
 			if (step == 0) tm.start(txID);
 			if (step > 0 && !on_commit_step()) {
@@ -122,7 +122,7 @@ public class Workloads {
 				step++;
 			}
 		}
-		
+
 		public boolean on_commit_step() {
 			return step == 11; //commit 10 writes, ith write is when step == i
 		}
@@ -133,13 +133,13 @@ public class Workloads {
 			a = o.a;
 			order = o.order;
 		}
-		
+
 		public Transaction clone() {
 			Transaction toRet = new BigTransaction();
 			toRet.copy(this);
 			return toRet;
 		}
-		
+
 		@Override
 		public boolean check(long TXid, TransactionManager tm) {
 			for(long key = x; key < x + 10; key++) {
