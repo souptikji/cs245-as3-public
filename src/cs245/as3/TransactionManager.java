@@ -64,7 +64,8 @@ public class TransactionManager {
 		Map<Long, Transaction> allTxnsMap = TransactionUtils.deserializeEntireLog(this._lm);
 		List<Transaction> committedTxns = allTxnsMap.values().stream().filter(txn -> txn.isCommitted()).collect(Collectors.toList());
 		committedTxns.sort((Transaction a, Transaction b)-> Long.compare(a.getTxnid(), b.getTxnid()));
-		committedTxns.forEach(txn -> txn.compactThisTxnToCreateLVmap());
+
+		//committedTxns.forEach(txn -> txn.compactThisTxnToCreateLVmap());
 		committedTxns.forEach(txn -> latestValues.putAll(txn.getLatestValues()));
 
 		//Queue all committed writes to disk
