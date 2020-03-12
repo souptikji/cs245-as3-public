@@ -8,6 +8,7 @@ import cs245.as3.interfaces.StorageManager;
 import cs245.as3.interfaces.StorageManager.TaggedValue;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.stream.Collectors;
 
 
@@ -61,10 +62,17 @@ public class TransactionManager {
 	}
 
 	private void wakeUpFromCrash() {
-		Map<Long, Transaction> allTxnsMap = TransactionUtils.deserializeEntireLog(this._lm);
-		List<Transaction> committedTxns = allTxnsMap.values().stream().filter(txn -> txn.isCommitted()).collect(Collectors.toList());
-		committedTxns.forEach(txn -> txn.compactThisTxnToCreateLVmap());
-		committedTxns.forEach(txn -> latestValues.putAll(txn.getLatestValues()));
+		/*SortedMap<Long, Transaction> sortedTxnsMap = TransactionUtils.deserializeEntireLog(this._lm);
+		//List<Transaction> committedTxns = allTxnsMap.values().stream().filter(txn -> txn.isCommitted()).collect(Collectors.toList());
+		List<Transaction> committedTxnsInOrder = new ArrayList<>();
+		for(long key: sortedTxnsMap.keySet()){
+			Transaction txn = sortedTxnsMap.get(key);
+			if(txn.isCommitted()){
+				committedTxnsInOrder.add(txn);
+			}
+		}
+		committedTxnsInOrder.forEach(txn -> latestValues.putAll(txn.getLatestValues()));*/
+		TransactionUtils.deserializeEntireLog2(_lm, latestValues);
 
 		//Queue all committed writes to disk
 		for(long key: latestValues.keySet()){
@@ -80,8 +88,8 @@ public class TransactionManager {
 	 * Indicates the start of a new transaction. We will guarantee that txID always increases (even across crashes)
 	 */
 	public void start(long txnid) {
-		LogMsg startLog = new LogMsg((byte) 1, txnid);
-		_lm.appendLogRecord(startLog.serialize());
+//		LogMsg startLog = new LogMsg((byte) 1, txnid);
+//		_lm.appendLogRecord(startLog.serialize());
 	}
 
 	/**
@@ -128,6 +136,8 @@ public class TransactionManager {
 		}
 
 		// Start logging to disk
+		LogMsg startLog = new LogMsg((byte) 1, txID);
+		_lm.appendLogRecord(startLog.serialize());
 		for(long key: pushTheseToDisk.keySet()){
 			TaggedValue tv = pushTheseToDisk.get(key);
 			LogMsg writeLog = new LogMsg((byte) 2, txID, key, tv.value);
@@ -146,8 +156,8 @@ public class TransactionManager {
 	 * Aborts a transaction.
 	 */
 	public void abort(long txID) {
-		LogMsg abortLog = new LogMsg((byte) 4, txID);
-		_lm.appendLogRecord(abortLog.serialize());
+//		LogMsg abortLog = new LogMsg((byte) 4, txID);
+//		_lm.appendLogRecord(abortLog.serialize());
 		writesets.remove(txID);
 	}
 
