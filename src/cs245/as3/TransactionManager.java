@@ -63,6 +63,7 @@ public class TransactionManager {
 	private void wakeUpFromCrash() {
 		Map<Long, Transaction> allTxnsMap = TransactionUtils.deserializeEntireLog(this._lm);
 		List<Transaction> committedTxns = allTxnsMap.values().stream().filter(txn -> txn.isCommitted()).collect(Collectors.toList());
+		committedTxns.sort((Transaction a, Transaction b)-> Long.compare(a.getTxnid(), b.getTxnid()));
 		committedTxns.forEach(txn -> txn.compactThisTxnToCreateLVmap());
 		committedTxns.forEach(txn -> latestValues.putAll(txn.getLatestValues()));
 
@@ -80,8 +81,8 @@ public class TransactionManager {
 	 * Indicates the start of a new transaction. We will guarantee that txID always increases (even across crashes)
 	 */
 	public void start(long txnid) {
-		LogMsg startLog = new LogMsg((byte) 1, txnid);
-		_lm.appendLogRecord(startLog.serialize());
+		//LogMsg startLog = new LogMsg((byte) 1, txnid);
+		//_lm.appendLogRecord(startLog.serialize());
 	}
 
 	/**
@@ -128,6 +129,8 @@ public class TransactionManager {
 		}
 
 		// Start logging to disk
+		LogMsg startLog = new LogMsg((byte) 1, txID);
+		_lm.appendLogRecord(startLog.serialize());
 		for(long key: pushTheseToDisk.keySet()){
 			TaggedValue tv = pushTheseToDisk.get(key);
 			LogMsg writeLog = new LogMsg((byte) 2, txID, key, tv.value);
@@ -146,8 +149,8 @@ public class TransactionManager {
 	 * Aborts a transaction.
 	 */
 	public void abort(long txID) {
-		LogMsg abortLog = new LogMsg((byte) 4, txID);
-		_lm.appendLogRecord(abortLog.serialize());
+		//LogMsg abortLog = new LogMsg((byte) 4, txID);
+		//_lm.appendLogRecord(abortLog.serialize());
 		writesets.remove(txID);
 	}
 

@@ -8,8 +8,6 @@ import java.util.List;
 
 public class Transaction {
   long _txnid;
-  List<LogMsg> _orderedLogMessages;
-  List<TransactionManager.WritesetEntry> _orderedWriteSets;
   private HashMap<Long, StorageManager.TaggedValue> _latestValues;
   boolean _isCommitted;
   boolean _isCompacted;
@@ -20,9 +18,6 @@ public class Transaction {
       throw new RuntimeException("Txn must always be constructed using a start message");
     }
     this._txnid = logmsg.getTxnid();
-    this._orderedLogMessages = new ArrayList<>();
-    this._orderedLogMessages.add(logmsg); //start msg
-    this._orderedWriteSets = new ArrayList<>();
     _isCommitted = false;
     _isCompacted = false;
     _isAborted = false;
