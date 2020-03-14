@@ -130,8 +130,8 @@ public class TransactionManager {
 		}
 
 		// Start logging to disk
-		LogMsg startLog = new LogMsg((byte) 1, txID);
-		_lm.appendLogRecord(startLog.serialize());
+		//LogMsg startLog = new LogMsg((byte) 1, txID);
+		//_lm.appendLogRecord(startLog.serialize());
 		for(long key: pushTheseToDisk.keySet()){
 			TaggedValue tv = pushTheseToDisk.get(key);
 			LogMsg writeLog = new LogMsg((byte) 2, txID, key, tv.value);

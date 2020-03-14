@@ -16,9 +16,9 @@ public class Transaction {
   boolean _isAborted;
 
   public Transaction(LogMsg logmsg) {
-    if (!logmsg.isStartLog()) {
+    /*if (!logmsg.isStartLog()) {
       throw new RuntimeException("Txn must always be constructed using a start message");
-    }
+    }*/
     this._txnid = logmsg.getTxnid();
     //this._orderedLogMessages = new ArrayList<>();
     //this._orderedLogMessages.add(logmsg); //start msg

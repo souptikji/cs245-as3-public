@@ -18,17 +18,19 @@ public class TransactionUtils {
     for(int i=0; i<loglen; ++i){
       byte[] logmsgArr = lm.readLogRecord(i*128, 128);
       LogMsg log = LogMsg.deserialize(logmsgArr);
-      if(log.isStartLog()){
-        Transaction txn = new Transaction(log);
-        map.put(txn._txnid, txn);
-      } else if(log.isWriteLog()){
-        // Verify it has a start
+      if(log.isWriteLog()){
         Transaction txn = map.get(log.getTxnid());
-        if(txn==null) throw new RuntimeException("Txn "+txn+" has a write message but no corresponding start");
+        if(txn==null){
+          txn = new Transaction(log);
+          map.put(txn.getTxnid(), txn);
+        }
         txn.writeLogEncountered(log);
       } else if(log.isCommitLog()){
         Transaction txn = map.get(log.getTxnid());
-        if(txn==null) throw new RuntimeException("Txn "+txn+" has a commit message but no corresponding start");
+        if(txn==null){
+          txn = new Transaction(log);
+          map.put(txn.getTxnid(), txn);
+        }
         txn.commitLogEncountered(log);
       }
     } //for
