@@ -8,6 +8,7 @@ import cs245.as3.interfaces.StorageManager;
 import cs245.as3.interfaces.StorageManager.TaggedValue;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 
 
@@ -43,10 +44,16 @@ public class TransactionManager {
 	private StorageManager _sm;
 	private LogManager _lm;
 
+	// Data strcutures for callback
+	private Map<Long, Transaction> allTxnsMap;
+	PriorityQueue<Integer> txnStart;
+
 	public TransactionManager() {
 		writesets = new HashMap<>();
 		//see initAndRecover
 		latestValues = null;
+		allTxnsMap = new HashMap();
+		txnStart = new PriorityQueue<>();
 	}
 
 	/**
@@ -61,19 +68,54 @@ public class TransactionManager {
 	}
 
 	private void wakeUpFromCrash() {
-		Map<Long, Transaction> allTxnsMap = TransactionUtils.deserializeEntireLog(this._lm);
+		//allTxnsMap = TransactionUtils.deserializeEntireLog(this._lm, txnStart);
+		int rawlogsize = _lm.getLogEndOffset();
+		if(rawlogsize%128!=0) throw new RuntimeException("Log should always be multiples of 128");
+		int loglen = rawlogsize/128;
+
+		for(int i=_lm.getLogTruncationOffset(); i<rawlogsize; i+=128){
+			byte[] logmsgArr = _lm.readLogRecord(i, 128);
+			LogMsg log = LogMsg.deserialize(logmsgArr);
+			if(log.isWriteLog()){
+				Transaction txn = allTxnsMap.get(log.getTxnid());
+				if(txn==null){
+					//first time
+					txn = new Transaction(log, i);
+					txnStart.offer(i);
+				}
+				txn.writeLogEncountered(log);
+				allTxnsMap.put(txn.getTxnid(), txn);
+
+			} else if(log.isCommitLog()){
+				Transaction txn = allTxnsMap.get(log.getTxnid());
+				/*if(txn==null){
+					txn = new Transaction(log,i);
+					txnStart.offer(i);
+				}*/
+				txn.commitLogEncountered(log);
+				allTxnsMap.put(txn.getTxnid(), txn);
+			}
+		} //for
+		//allTxnsMap = TransactionUtils.deserializeEntireLog(this._lm, txnStart);
+
+
 		List<Transaction> committedTxns = allTxnsMap.values().stream().filter(txn -> txn.isCommitted()).collect(Collectors.toList());
 		committedTxns.sort((Transaction a, Transaction b)-> Long.compare(a.getTxnid(), b.getTxnid()));
 
-		//committedTxns.forEach(txn -> txn.compactThisTxnToCreateLVmap());
-		committedTxns.forEach(txn -> latestValues.putAll(txn.getLatestValues()));
+		for(Transaction comTxn : committedTxns){
+			for(TaggedValue tv: comTxn.getLatestValues()){
+				latestValues.put(tv.tag, new TaggedValue(0, tv.value));
+				_sm.queueWrite(tv.tag, comTxn.getTxnid(), tv.value);
+			}
+		}
+		/*committedTxns.forEach(txn -> latestValues.putAll(txn.getLatestValues()));
 
 		//Queue all committed writes to disk
 		for(long key: latestValues.keySet()){
 			//Start pushing to dick
 			TaggedValue tv = latestValues.get(key);
-			_sm.queueWrite(key, tv.tag, tv.value);
-		}
+			_sm.queueWrite(txnId, tv.tag, tv.value);
+		}*/
 
 		//TODO: "End" txn
 	}
@@ -119,32 +161,41 @@ public class TransactionManager {
 		// Modify in memory data structure
 		ArrayList<WritesetEntry> writeset = writesets.get(txID);
 		if (writeset != null) {
-			for(WritesetEntry x : writeset) {
+
+			//Record this txn
+			Transaction thistxn = new Transaction(txID, _lm.getLogEndOffset());
+			allTxnsMap.put(txID, thistxn);
+			txnStart.offer(_lm.getLogEndOffset());
+
+			for (WritesetEntry x : writeset) {
 				//tag is unused in this implementation:
 				long tag = 0; //TODO: Change this
 				TaggedValue tv = new TaggedValue(tag, x.value);
 				latestValues.put(x.key, tv);
-				pushTheseToDisk.put(x.key, tv);
+
+				// log this
+				LogMsg writeLog = new LogMsg((byte) 2, txID, x.key, x.value);
+				_lm.appendLogRecord(writeLog.serialize());
+
+				//update internal data struct
+				allTxnsMap.get(txID).writeLogEncountered(writeLog);
+			}
+
+		}
+
+		//log commit
+		LogMsg commitLog = new LogMsg((byte) 3, txID);
+		_lm.appendLogRecord(commitLog.serialize());
+		allTxnsMap.get(txID).commitLogEncountered(commitLog);
+
+		//start pushing to disk
+		if (writeset != null) {
+			for(WritesetEntry x : writeset) {
+				_sm.queueWrite(x.key, txID, x.value);
 			}
 			writesets.remove(txID);
 		}
 
-		// Start logging to disk
-		//LogMsg startLog = new LogMsg((byte) 1, txID);
-		//_lm.appendLogRecord(startLog.serialize());
-		for(long key: pushTheseToDisk.keySet()){
-			TaggedValue tv = pushTheseToDisk.get(key);
-			LogMsg writeLog = new LogMsg((byte) 2, txID, key, tv.value);
-			_lm.appendLogRecord(writeLog.serialize());
-		}
-		LogMsg commitLog = new LogMsg((byte) 3, txID);
-		_lm.appendLogRecord(commitLog.serialize());
-
-		// Start writing to disk
-		for(long key: pushTheseToDisk.keySet()){
-			TaggedValue tv = pushTheseToDisk.get(key);
-			_sm.queueWrite(key, tv.tag, tv.value);
-		}
 	}
 	/**
 	 * Aborts a transaction.
@@ -159,6 +210,17 @@ public class TransactionManager {
 	 * The storage manager will call back into this procedure every time a queued write becomes persistent.
 	 * These calls are in order of writes to a key and will occur once for every such queued write, unless a crash occurs.
 	 */
-	public void writePersisted(long key, long persisted_tag, byte[] persisted_value) {
+	public void writePersisted(long key, long txnId, byte[] persisted_value) {
+		// update once txn has been completed
+		Transaction tobj = allTxnsMap.get(txnId);
+		if (tobj == null) return;
+		tobj.flush(key, persisted_value);
+		allTxnsMap.put(txnId, tobj);
+		if (!tobj.flushedToDisk) return;
+		txnStart.remove(tobj.getBegin());
+		if (txnStart.isEmpty())
+			_lm.setLogTruncationOffset(_lm.getLogEndOffset());
+		else
+			_lm.setLogTruncationOffset(txnStart.peek());
 	}
 }

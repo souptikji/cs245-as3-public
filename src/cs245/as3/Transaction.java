@@ -3,44 +3,56 @@ package cs245.as3;
 import cs245.as3.interfaces.StorageManager;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 
 public class Transaction {
   long _txnid;
-  //List<LogMsg> _orderedLogMessages;
-  //List<TransactionManager.WritesetEntry> _orderedWriteSets;
-  private HashMap<Long, StorageManager.TaggedValue> _latestValues;
+  private List<StorageManager.TaggedValue> _latestValues;
   boolean _isCommitted;
-  //boolean _isCompacted;
   boolean _isAborted;
 
-  public Transaction(LogMsg logmsg) {
-    /*if (!logmsg.isStartLog()) {
-      throw new RuntimeException("Txn must always be constructed using a start message");
-    }*/
+  int _begin;
+  Set<Integer> kvhashTODO;
+  boolean flushedToDisk;
+
+  public Transaction(LogMsg logmsg, int startLogIdx) {
     this._txnid = logmsg.getTxnid();
-    //this._orderedLogMessages = new ArrayList<>();
-    //this._orderedLogMessages.add(logmsg); //start msg
-    //this._orderedWriteSets = new ArrayList<>();
     _isCommitted = false;
-    //_isCompacted = false;
     _isAborted = false;
-    _latestValues = new HashMap<>();
+    _latestValues = new ArrayList<>();
+    kvhashTODO = new HashSet<>();
+    _begin = startLogIdx;
+  }
+
+  public Transaction(long txnid, int startLogIdx) {
+    this._txnid = txnid;
+    _isCommitted = false;
+    _isAborted = false;
+    _latestValues = new ArrayList<>();
+    kvhashTODO = new HashSet<>();
+    _begin = startLogIdx;
+  }
+
+  public void flush(long key, byte[] val){
+    kvhashTODO.remove(Objects.hash(key, val));
+    flushedToDisk = kvhashTODO.isEmpty();
   }
 
   public void writeLogEncountered(LogMsg logmsg) {
-    if (!logmsg.isWriteLog()) {
+    /*if (!logmsg.isWriteLog()) {
       throw new RuntimeException("Not a write message");
     }
     if (logmsg.getTxnid() != this._txnid) {
       throw new RuntimeException("Not belonging to this txn");
     }
-    //_orderedLogMessages.add(logmsg);
-    //TransactionManager.WritesetEntry wse = new TransactionManager.WritesetEntry(logmsg.getKey(), logmsg.getVal());
-    //_orderedWriteSets.add(wse);
-    int tag = 0;
-    this._latestValues.put(logmsg.getKey(), new StorageManager.TaggedValue(tag, logmsg.getVal()));
+*/
+    long tag = logmsg.getKey(); //_txnId ?? TODO
+    this._latestValues.add(new StorageManager.TaggedValue(tag, logmsg.getVal()));
+    kvhashTODO.add(Objects.hash(logmsg.getKey(), logmsg.getVal()));
   }
 
   public void commitLogEncountered(LogMsg logmsg) {
@@ -53,7 +65,6 @@ public class Transaction {
     if(isAborted()){
       throw new RuntimeException("Can't commit a aborted txn"+getTxnid());
     }
-    //_orderedLogMessages.add(logmsg);
     _isCommitted = true;
   }
 
@@ -71,42 +82,24 @@ public class Transaction {
     if(isCommitted()){
       throw new RuntimeException("Can't abort a committed txn"+getTxnid());
     }
-    //_orderedLogMessages.add(logmsg);
     _isAborted = true;
   }
-
-  /*public boolean isCompacted() {
-    return _isCompacted;
-  }*/
-
-  /*public void compactThisTxnToCreateLVmap(){
-    if(!this.isCommitted()) throw new RuntimeException("Cannot compact txn log without commit");
-    for(TransactionManager.WritesetEntry x : getOrderedWriteSets()) {
-      //tag is unused in this implementation:
-      long tag = 0;
-      this._latestValues.put(x.key, new StorageManager.TaggedValue(tag, x.value));
-    }
-    _isCompacted = true;
-  }*/
 
   public long getTxnid() {
     return _txnid;
   }
 
-  /*public List<LogMsg> getOrderedLogMessages() {
-    return _orderedLogMessages;
-  }*/
 
   public boolean isCommitted() {
     return _isCommitted;
   }
 
-  /*private List<TransactionManager.WritesetEntry> getOrderedWriteSets() {
-    return _orderedWriteSets;
-  }*/
 
-  public HashMap<Long, StorageManager.TaggedValue> getLatestValues() {
-    //if(!isCompacted()) throw new RuntimeException("Please compact Txn log before asking for latestValues");
+  public List<StorageManager.TaggedValue> getLatestValues() {
     return _latestValues;
+  }
+
+  public int getBegin() {
+    return _begin;
   }
 }
